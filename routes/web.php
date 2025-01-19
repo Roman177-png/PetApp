@@ -14,3 +14,4 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', [\App\Http\Controllers\Controller::class,'index']);
+Route::resource('pets', \App\Http\Controllers\PetController::class);
