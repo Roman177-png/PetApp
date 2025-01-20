@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StorePetRequest;
 use App\Services\PetService;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class PetController extends Controller
 {
@@ -37,11 +38,26 @@ class PetController extends Controller
         }
         return back()->withErrors(['error' => 'Unable to add pet']);
     }
-    public function index()
+    public function index(Request $request)
     {
-        $pets = $this->petService->getPetsByStatus('available');
-        return view('pets.index', compact('pets'));
+        $status = $request->get('status', 'available');
+        $pets = $this->petService->getPetsByStatus($status);
+
+        $filteredPets = array_filter($pets, function ($pet) {
+            return isset($pet['name']) && !empty($pet['name']);
+        });
+
+        $itemsPerPage = 12;
+        $currentPage = request()->get('page', 1);
+
+        $start = ($currentPage - 1) * $itemsPerPage;
+        $pagedPets = array_slice($filteredPets, $start, $itemsPerPage);
+
+        $totalPages = ceil(count($filteredPets) / $itemsPerPage);
+
+        return view('pets.index', compact('pagedPets', 'totalPages', 'currentPage'));
     }
+
     public function show($id)
     {
         $pet = $this->petService->getPetById($id);
