@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StorePetRequest;
 use App\Services\PetService;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 
 class PetController extends Controller
 {
@@ -22,22 +21,40 @@ class PetController extends Controller
     public function store(StorePetRequest $request)
     {
         $validatedData = $request->validated();
+        $tags = [];
+        if (!empty($validatedData['tags'])) {
+            foreach ($validatedData['tags'] as $tag) {
+                $tags[] = [
+                    'id' => 0,
+                    'name' => $tag,
+                ];
+            }
+        }
+
         $data = [
             'name' => $validatedData['name'],
             'status' => $validatedData['status'],
             'photoUrls' => $validatedData['photoUrls'],
-            'tags' => $validatedData['tags'] ?? [],
+            'tags' => $tags,
             'category' => [
                 'id' => $validatedData['category_id'] ?? 0,
                 'name' => 'string',
             ],
         ];
-        $response = $this->petService->addPet($data);
-        if ($response) {
-            return redirect()->route('pets.index')->with('success', 'Pet added successfully');
+
+        try {
+            $response = $this->petService->addPet($data);
+
+            if (isset($response['id'])) {
+                return redirect()->route('pets.index')->with('success', 'Pet added successfully');
+            }
+
+            return back()->withErrors(['error' => $response['message'] ?? 'Unable to add pet']);
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => 'An error occurred: ' . $e->getMessage()]);
         }
-        return back()->withErrors(['error' => 'Unable to add pet']);
     }
+
     public function index(Request $request)
     {
         $status = $request->get('status', 'available');
@@ -60,14 +77,19 @@ class PetController extends Controller
 
     public function show($id)
     {
-        $pet = $this->petService->getPetById($id);
+        try {
+            $pet = $this->petService->getPetById($id);
 
-        if (!$pet) {
-            return redirect()->route('pets.index')->withErrors(['error' => 'Pet not found']);
+            if (!$pet) {
+                return redirect()->route('pets.index')->withErrors(['error' => 'Pet not found']);
+            }
+            return view('pets.show', compact('pet'));
+
+        } catch (\Exception $e) {
+            return redirect()->route('pets.index')->withErrors(['error' => 'An error occurred: ' . $e->getMessage()]);
         }
-
-        return view('pets.show', compact('pet'));
     }
+
     public function edit($id)
     {
         $pet = $this->petService->getPetById($id);
@@ -81,36 +103,51 @@ class PetController extends Controller
     public function update(StorePetRequest $request, $id)
     {
         $validatedData = $request->validated();
-
+        $tags = [];
+        if (!empty($validatedData['tags'])) {
+            foreach ($validatedData['tags'] as $tag) {
+                $tags[] = [
+                    'id' => 0,
+                    'name' => $tag,
+                ];
+            }
+        }
         $data = [
             'id' => $id,
             'name' => $validatedData['name'],
             'status' => $validatedData['status'],
             'photoUrls' => $validatedData['photoUrls'],
-            'tags' => $validatedData['tags'] ?? [],
+            'tags' => $tags,
             'category' => [
                 'id' => $validatedData['category_id'] ?? 0,
                 'name' => 'string',
             ],
         ];
 
-        $response = $this->petService->updatePet($data);
-
-        if ($response) {
-            return redirect()->route('pets.index')->with('success', 'Pet updated successfully');
+        try {
+            $response = $this->petService->updatePet($data);
+            if (isset($response['id'])){
+                return redirect()->route('pets.index')->with('success', 'Pet updated successfully');
+            }
+            return back()->withErrors(['error' => $response['message'] ?? 'Unable to update pet']);
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => 'An error occurred: ' . $e->getMessage()]);
         }
-
-        return back()->withErrors(['error' => 'Unable to update pet']);
     }
 
     public function destroy($id)
     {
-        $response = $this->petService->deletePet($id);
+        try {
+            $response = $this->petService->deletePet($id);
 
-        if ($response) {
-            return redirect()->route('pets.index')->with('success', 'Pet deleted successfully');
+            if ($response && $response['status'] == 200) {
+                return redirect()->route('pets.index')->with('success', 'Pet deleted successfully');
+            }
+            return back()->withErrors(['error' => 'Unable to delete pet, try again later.']);
+
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => 'An error occurred: ' . $e->getMessage()]);
         }
-
-        return back()->withErrors(['error' => 'Unable to delete pet']);
     }
+
 }
