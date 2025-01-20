@@ -10,16 +10,4 @@ use Illuminate\Routing\Controller as BaseController;
 class Controller extends BaseController
 {
     use AuthorizesRequests, ValidatesRequests;
-    protected $petService;
-
-    public function __construct(PetService $petService)
-    {
-        $this->petService = $petService;
-    }
-    public function index()
-    {
-        $pets = $this->petService->getPetsByStatus('available');
-        dd($pets);
-        return view('welcome');
-    }
 }
